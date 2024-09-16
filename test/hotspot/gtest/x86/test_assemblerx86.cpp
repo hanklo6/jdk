@@ -1,6 +1,6 @@
 #include "precompiled.hpp"
 
-#if defined(X86)
+#if defined(X86) && !defined(__APPLE__)
 
 #include <unordered_map>
 #include "asm/assembler.hpp"
