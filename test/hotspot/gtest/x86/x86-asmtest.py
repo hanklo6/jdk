@@ -270,11 +270,18 @@ def handle_lp64_flag(i, lp64_flag, print_lp64_flag):
         return True
     return lp64_flag
 
-def generate(RegOp, ops, print_lp64_flag=True):
+def get_immediate_list(op_name, width):
     # special cases
     shift_ops = {'sarl', 'sarq', 'shll', 'shlq', 'shrl', 'shrq', 'shrdl', 'shrdq', 'shldl', 'shldq', 'rcrq', 'rorl', 'rorq', 'roll', 'rolq', 'rcll', 'rclq'}
     addw_ops = {'addw'}
-    
+    if op_name in shift_ops:
+        return immediates5
+    elif op_name in addw_ops:
+        return immediate_values_8_to_16_bit
+    else:
+        return immediate_map[width]
+
+def generate(RegOp, ops, print_lp64_flag=True):
     for op in ops:
         op_name = op[0]
         width = op[2]
@@ -301,7 +308,7 @@ def generate(RegOp, ops, print_lp64_flag=True):
                 print_instruction(instr, lp64_flag, print_lp64_flag)
         
         elif RegOp in [RegImmInstruction]:
-            imm_list = immediates5 if op_name in shift_ops else immediate_map[width]
+            imm_list = get_immediate_list(op_name, width)
             for i in range(len(test_regs)):
                 lp64_flag = handle_lp64_flag(i, lp64_flag, print_lp64_flag)
                 for imm in imm_list:
@@ -309,12 +316,7 @@ def generate(RegOp, ops, print_lp64_flag=True):
                     print_instruction(instr, lp64_flag, print_lp64_flag)
         
         elif RegOp in [MemImmInstruction]:
-            if op_name in addw_ops:
-                imm_list = immediate_values_8_to_16_bit
-            elif op_name in shift_ops:
-                imm_list = immediates5
-            else:
-                imm_list = immediate_map[width]
+            imm_list = get_immediate_list(op_name, width)
             for imm in imm_list:
                 for i in range(len(test_regs)):
                     if test_regs[(i + 1) % len(test_regs)] == 'rsp':
@@ -332,7 +334,7 @@ def generate(RegOp, ops, print_lp64_flag=True):
                 print_instruction(instr, lp64_flag, print_lp64_flag)
                 
         elif RegOp in [RegRegImmInstruction]:
-            imm_list = immediates5 if op_name in shift_ops else immediate_map[width]
+            imm_list = get_immediate_list(op_name, width)
             for i in range(len(test_regs)):
                 lp64_flag = handle_lp64_flag((i + 1) % len(test_regs), lp64_flag, print_lp64_flag)
                 for imm in imm_list:
@@ -340,7 +342,7 @@ def generate(RegOp, ops, print_lp64_flag=True):
                     print_instruction(instr, lp64_flag, print_lp64_flag)
         
         elif RegOp in [RegMemImmInstruction]:
-            imm_list = immediate_map[width]
+            imm_list = get_immediate_list(op_name, width)
             for i in range(len(test_regs)):
                 lp64_flag = handle_lp64_flag((i + 2) % len(test_regs), lp64_flag, print_lp64_flag)
                 for imm in imm_list:
