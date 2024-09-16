@@ -251,72 +251,64 @@ immediate_map = {
     64: immediates32
 }
 
-context = []
+ifdef_flags = []
+
+def is_64_reg(reg):
+    return reg in {'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15'}
+
+def print_instruction(instr, lp64_flag, print_lp64_flag):
+    cstr = instr.cstr()
+    astr = instr.astr()
+    print("    %-50s //\t%s" % (cstr, astr))
+    ifdef_flags.append(lp64_flag or not print_lp64_flag)
+    instrs.append(cstr)
+    outfile.write(f"\t{astr}\n")
+
+def handle_lp64_flag(i, lp64_flag, print_lp64_flag):
+    if is_64_reg(test_regs[i]) and not lp64_flag and print_lp64_flag:
+        print("#ifdef _LP64")
+        return True
+    return lp64_flag
 
 def generate(RegOp, ops, print_lp64_flag=True):
     # special cases
     shift_ops = {'sarl', 'sarq', 'shll', 'shlq', 'shrl', 'shrq', 'shrdl', 'shrdq', 'shldl', 'shldq', 'rcrq', 'rorl', 'rorq', 'roll', 'rolq', 'rcll', 'rclq'}
     addw_ops = {'addw'}
+    
     for op in ops:
         op_name = op[0]
         width = op[2]
         lp64_flag = False
-        if RegOp == RegInstruction or RegOp == CondRegInstruction:
+        
+        if RegOp in [RegInstruction, CondRegInstruction]:
             for i in range(len(test_regs)):
-                if i == 3 and lp64_flag == False and print_lp64_flag:
-                    lp64_flag = True
-                    print("#ifdef _LP64")
+                lp64_flag = handle_lp64_flag(i, lp64_flag, print_lp64_flag)
                 instr = RegOp(*op, reg=test_regs[i])
-                cstr = instr.cstr()
-                astr = instr.astr()
-                print("    %-50s //\t%s" % (cstr, astr))
-                context.append(lp64_flag or not print_lp64_flag)
-                instrs.append(cstr)
-                outfile.write(f"\t{astr}\n")
-        elif RegOp == TwoRegInstruction:
+                print_instruction(instr, lp64_flag, print_lp64_flag)
+                
+        elif RegOp in [TwoRegInstruction]:
             for i in range(len(test_regs)):
-                if i + 1 == 3 and lp64_flag == False and print_lp64_flag:
-                    lp64_flag = True
-                    print("#ifdef _LP64")
-                instr = RegOp(*op, reg1=test_regs[i], reg2=test_regs[(i+1)%len(test_regs)])
-                cstr = instr.cstr()
-                astr = instr.astr()
-                print("    %-50s //\t%s" % (cstr, astr))
-                context.append(lp64_flag or not print_lp64_flag)
-                instrs.append(cstr)
-                outfile.write(f"\t{astr}\n")
-        elif RegOp == MemRegInstruction or RegOp == RegMemInstruction or RegOp == CondRegMemInstruction:
+                lp64_flag = handle_lp64_flag((i + 1) % len(test_regs), lp64_flag, print_lp64_flag)
+                instr = RegOp(*op, reg1=test_regs[i], reg2=test_regs[(i + 1) % len(test_regs)])
+                print_instruction(instr, lp64_flag, print_lp64_flag)
+                
+        elif RegOp in [MemRegInstruction, RegMemInstruction, CondRegMemInstruction]:
             for i in range(len(test_regs)):
-                if test_regs[(i+2)%len(test_regs)] == 'rsp':
+                if test_regs[(i + 2) % len(test_regs)] == 'rsp':
                     continue
-                if i + 2 == 3 and lp64_flag == False and print_lp64_flag:
-                    lp64_flag = True
-                    print("#ifdef _LP64")
-                instr = RegOp(*op, reg=test_regs[i], mem_base=test_regs[(i+1)%len(test_regs)], mem_idx=test_regs[(i+2)%len(test_regs)])
-                cstr = instr.cstr()
-                astr = instr.astr()
-                print("    %-50s //\t%s" % (cstr, astr))
-                context.append(lp64_flag or not print_lp64_flag)
-                instrs.append(cstr)
-                outfile.write(f"\t{astr}\n")
-        elif RegOp == RegImmInstruction:
+                lp64_flag = handle_lp64_flag((i + 2) % len(test_regs), lp64_flag, print_lp64_flag)
+                instr = RegOp(*op, reg=test_regs[i], mem_base=test_regs[(i + 1) % len(test_regs)], mem_idx=test_regs[(i + 2) % len(test_regs)])
+                print_instruction(instr, lp64_flag, print_lp64_flag)
+        
+        elif RegOp in [RegImmInstruction]:
+            imm_list = immediates5 if op_name in shift_ops else immediate_map[width]
             for i in range(len(test_regs)):
-                if i == 3 and lp64_flag == False and print_lp64_flag:
-                    lp64_flag = True
-                    print("#ifdef _LP64")
-                if op_name in shift_ops:
-                    imm_list = immediates5
-                else:
-                    imm_list = immediate_map[width]
+                lp64_flag = handle_lp64_flag(i, lp64_flag, print_lp64_flag)
                 for imm in imm_list:
                     instr = RegOp(*op, reg=test_regs[i], imm=imm)
-                    cstr = instr.cstr()
-                    astr = instr.astr()
-                    print("    %-50s //\t%s" % (cstr, astr))
-                    context.append(lp64_flag or not print_lp64_flag)
-                    instrs.append(cstr)
-                    outfile.write(f"\t{astr}\n")
-        elif RegOp == MemImmInstruction:
+                    print_instruction(instr, lp64_flag, print_lp64_flag)
+        
+        elif RegOp in [MemImmInstruction]:
             if op_name in addw_ops:
                 imm_list = immediate_values_8_to_16_bit
             elif op_name in shift_ops:
@@ -325,97 +317,90 @@ def generate(RegOp, ops, print_lp64_flag=True):
                 imm_list = immediate_map[width]
             for imm in imm_list:
                 for i in range(len(test_regs)):
-                    if i + 1 == 3 and lp64_flag == False and print_lp64_flag:
-                        lp64_flag = True
-                        print("#ifdef _LP64")
-                    instr = RegOp(*op, imm=imm, mem_base=test_regs[i], mem_idx=test_regs[(i+1)%len(test_regs)])
-                    if test_regs[(i+1)%len(test_regs)] == 'rsp':
+                    if test_regs[(i + 1) % len(test_regs)] == 'rsp':
                         continue
-                    cstr = instr.cstr()
-                    astr = instr.astr()
-                    print("    %-50s //\t%s" % (cstr, astr))
-                    context.append(lp64_flag or not print_lp64_flag)
-                    instrs.append(cstr)
-                    outfile.write(f"\t{astr}\n")
-        elif RegOp == MemInstruction:
+                    lp64_flag = handle_lp64_flag((i + 1) % len(test_regs), lp64_flag, print_lp64_flag)
+                    instr = RegOp(*op, imm=imm, mem_base=test_regs[i], mem_idx=test_regs[(i + 1) % len(test_regs)])
+                    print_instruction(instr, lp64_flag, print_lp64_flag)
+        
+        elif RegOp in [MemInstruction]:
             for i in range(len(test_regs)):
-                if i + 1 == 3 and lp64_flag == False and print_lp64_flag:
-                    lp64_flag = True
-                    print("#ifdef _LP64")
-                instr = RegOp(*op, mem_base=test_regs[i], mem_idx=test_regs[(i+1)%len(test_regs)])
-                if test_regs[(i+1)%len(test_regs)] == 'rsp':
+                if test_regs[(i + 1) % len(test_regs)] == 'rsp':
                     continue
-                cstr = instr.cstr()
-                astr = instr.astr()
-                print("    %-50s //\t%s" % (cstr, astr))
-                context.append(lp64_flag or not print_lp64_flag)
-                instrs.append(cstr)
-                outfile.write(f"\t{astr}\n")
-        elif RegOp == RegRegImmInstruction:
+                lp64_flag = handle_lp64_flag((i + 1) % len(test_regs), lp64_flag, print_lp64_flag)
+                instr = RegOp(*op, mem_base=test_regs[i], mem_idx=test_regs[(i + 1) % len(test_regs)])
+                print_instruction(instr, lp64_flag, print_lp64_flag)
+                
+        elif RegOp in [RegRegImmInstruction]:
+            imm_list = immediates5 if op_name in shift_ops else immediate_map[width]
             for i in range(len(test_regs)):
-                if i + 1 == 3 and lp64_flag == False and print_lp64_flag:
-                    lp64_flag = True
-                    print("#ifdef _LP64")
-                if op_name in shift_ops:
-                    imm_list = immediates5
-                else:
-                    imm_list = immediate_map[width]
+                lp64_flag = handle_lp64_flag((i + 1) % len(test_regs), lp64_flag, print_lp64_flag)
                 for imm in imm_list:
-                    instr = RegOp(*op, reg1=test_regs[i], reg2=test_regs[(i+1)%len(test_regs)], imm=imm)
-                    cstr = instr.cstr()
-                    astr = instr.astr()
-                    print("    %-50s //\t%s" % (cstr, astr))
-                    context.append(lp64_flag or not print_lp64_flag)
-                    instrs.append(cstr)
-                    outfile.write(f"\t{astr}\n")
-        elif RegOp == RegMemImmInstruction:
+                    instr = RegOp(*op, reg1=test_regs[i], reg2=test_regs[(i + 1) % len(test_regs)], imm=imm)
+                    print_instruction(instr, lp64_flag, print_lp64_flag)
+        
+        elif RegOp in [RegMemImmInstruction]:
+            imm_list = immediate_map[width]
             for i in range(len(test_regs)):
-                if i + 2 == 3 and lp64_flag == False and print_lp64_flag:
-                    lp64_flag = True
-                    print("#ifdef _LP64")
-                imm_list = immediate_map[width]
+                lp64_flag = handle_lp64_flag((i + 2) % len(test_regs), lp64_flag, print_lp64_flag)
                 for imm in imm_list:
-                    instr = RegOp(*op, reg=test_regs[i], mem_base=test_regs[(i+1)%len(test_regs)], mem_idx=test_regs[(i+2)%len(test_regs)], imm=imm)
-                    if test_regs[(i+2)%len(test_regs)] == 'rsp':
+                    if test_regs[(i + 2) % len(test_regs)] == 'rsp':
                         continue
-                    cstr = instr.cstr()
-                    astr = instr.astr()
-                    print("    %-50s //\t%s" % (cstr, astr))
-                    context.append(lp64_flag or not print_lp64_flag)
-                    instrs.append(cstr)
-                    outfile.write(f"\t{astr}\n")
-        elif RegOp == Push2Instruction or RegOp == Pop2Instruction:
+                    instr = RegOp(*op, reg=test_regs[i], mem_base=test_regs[(i + 1) % len(test_regs)], mem_idx=test_regs[(i + 2) % len(test_regs)], imm=imm)
+                    print_instruction(instr, lp64_flag, print_lp64_flag)
+                    
+        elif RegOp in [Push2Instruction, Pop2Instruction]:
             for i in range(len(test_regs)):
-                if i + 1 == 3 and lp64_flag == False and print_lp64_flag:
-                    lp64_flag = True
-                    print("#ifdef _LP64")
-                instr = RegOp(*op, reg1=test_regs[i], reg2=test_regs[(i+1)%len(test_regs)])
-                # rsp can't be used in push2 and pop2
-                if test_regs[(i+1)%len(test_regs)] == 'rsp' or test_regs[i] == 'rsp':
+                lp64_flag = handle_lp64_flag((i + 1) % len(test_regs), lp64_flag, print_lp64_flag)
+                if test_regs[(i + 1) % len(test_regs)] == 'rsp' or test_regs[i] == 'rsp':
                     continue
-                cstr = instr.cstr()
-                astr = instr.astr()
-                print("    %-50s //\t%s" % (cstr, astr))
-                context.append(lp64_flag or not print_lp64_flag)
-                instrs.append(cstr)
-                outfile.write(f"\t{astr}\n")
-        elif RegOp ==  RegImm32Instruction:
+                instr = RegOp(*op, reg1=test_regs[i], reg2=test_regs[(i + 1) % len(test_regs)])
+                print_instruction(instr, lp64_flag, print_lp64_flag)
+                
+        elif RegOp in [RegImm32Instruction]:
             for i in range(len(test_regs)):
-                if i == 3 and lp64_flag == False and print_lp64_flag:
-                    lp64_flag = True
-                    print("#ifdef _LP64")
+                lp64_flag = handle_lp64_flag(i, lp64_flag, print_lp64_flag)
                 for imm in immediate_values_16_to_32_bit:
                     instr = RegOp(*op, reg=test_regs[i], imm=imm)
-                    cstr = instr.cstr()
-                    astr = instr.astr()
-                    print("    %-50s //\t%s" % (cstr, astr))
-                    context.append(lp64_flag or not print_lp64_flag)
-                    instrs.append(cstr)
-                    outfile.write(f"\t{astr}\n")
+                    print_instruction(instr, lp64_flag, print_lp64_flag)
+        
+        else:
+            raise ValueError(f"Unsupported instruction type: {RegOp}")
+        
         if lp64_flag and print_lp64_flag:
             print("#endif // _LP64")
             lp64_flag = False
 
+def print_with_ifdef(ifdef_flags, items, item_formatter, end=",", items_per_line=1):
+    under_defined = False
+    current_line_length = 0
+    for idx, item in enumerate(items):
+        if ifdef_flags[idx]:
+            if not under_defined:
+                if current_line_length > 0:
+                    print()
+                print("#ifdef _LP64")
+                under_defined = True
+                current_line_length = 0
+        else:
+            if under_defined:
+                if current_line_length > 0:
+                    print()
+                print("#endif // _LP64")
+                under_defined = False
+                current_line_length = 0
+        if current_line_length == 0:
+            print("    ", end="")
+        print(f"{item_formatter(item)}{end}", end=" ")
+        current_line_length += 1
+        if idx % items_per_line == items_per_line - 1:
+            print()
+            current_line_length = 0
+    if under_defined:
+        if current_line_length > 0:
+            print()
+        print("#endif // _LP64")
+        
 print("// BEGIN  Generated code -- do not edit")
 print("// Generated by x86-asmtest.py")
 
@@ -676,50 +661,20 @@ for i, line in enumerate(lines):
         length = len(insns)
         instructions.append((length, binary_code))
 
-def print_with_ifdef(context, items, item_formatter, end=",", items_per_line=1):
-    under_defined = False
-    current_line_length = 0
-    for idx, item in enumerate(items):
-        if context[idx]:
-            if not under_defined:
-                if current_line_length > 0:
-                    print()
-                print("#ifdef _LP64")
-                under_defined = True
-                current_line_length = 0
-        else:
-            if under_defined:
-                if current_line_length > 0:
-                    print()
-                print("#endif // _LP64")
-                under_defined = False
-                current_line_length = 0
-        if current_line_length == 0:
-            print("    ", end="")
-        print(f"{item_formatter(item)}{end}", end=" ")
-        current_line_length += 1
-        if idx % items_per_line == items_per_line - 1:
-            print()
-            current_line_length = 0
-    if under_defined:
-        if current_line_length > 0:
-            print()
-        print("#endif // _LP64")
-
 print()
 print("  static const uint8_t insns[] =")
 print("  {")
-print_with_ifdef(context, instructions, lambda x: x[1], items_per_line=1)
+print_with_ifdef(ifdef_flags, instructions, lambda x: x[1], items_per_line=1)
 print("  };")
 print("  static const unsigned int insns_lens[] =")
 print("  {")
-print_with_ifdef(context, instructions, lambda x: x[0], end=", ", items_per_line=8)
+print_with_ifdef(ifdef_flags, instructions, lambda x: x[0], end=", ", items_per_line=8)
 print()
 print("  };")
 print()
 print("  static const char* insns_strs[] =")
 print("  {")
-print_with_ifdef(context, instrs, lambda x: f"\"{x}\"", items_per_line=1)
+print_with_ifdef(ifdef_flags, instrs, lambda x: f"\"{x}\"", items_per_line=1)
 print("  };")
 
 print("// END  Generated code -- do not edit")
