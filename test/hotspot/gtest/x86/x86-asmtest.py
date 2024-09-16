@@ -370,7 +370,7 @@ def generate(RegOp, ops, print_lp64_flag=True):
                     outfile.write(f"\t{astr}\n")
         elif RegOp == RegMemImmInstruction:
             for i in range(len(test_regs)):
-                if i + 1 == 3 and lp64_flag == False and print_lp64_flag:
+                if i + 2 == 3 and lp64_flag == False and print_lp64_flag:
                     lp64_flag = True
                     print("#ifdef _LP64")
                 imm_list = immediate_map[width]
@@ -675,80 +675,51 @@ for i, line in enumerate(lines):
         binary_code = ", ".join([f"0x{insn}" for insn in insns])
         length = len(insns)
         instructions.append((length, binary_code))
-# print(context)
+
+def print_with_ifdef(context, items, item_formatter, end=",", items_per_line=1):
+    under_defined = False
+    current_line_length = 0
+    for idx, item in enumerate(items):
+        if context[idx]:
+            if not under_defined:
+                if current_line_length > 0:
+                    print()
+                print("#ifdef _LP64")
+                under_defined = True
+                current_line_length = 0
+        else:
+            if under_defined:
+                if current_line_length > 0:
+                    print()
+                print("#endif // _LP64")
+                under_defined = False
+                current_line_length = 0
+        if current_line_length == 0:
+            print("    ", end="")
+        print(f"{item_formatter(item)}{end}", end=" ")
+        current_line_length += 1
+        if idx % items_per_line == items_per_line - 1:
+            print()
+            current_line_length = 0
+    if under_defined:
+        if current_line_length > 0:
+            print()
+        print("#endif // _LP64")
+
 print()
 print("  static const uint8_t insns[] =")
 print("  {")
-
-under_defined = False
-for idx, (_, binary_code) in enumerate(instructions):
-    if context[idx]:
-        if not under_defined:
-            print("#ifdef _LP64")
-            under_defined = True
-    else:
-        if under_defined:
-            print("#endif // _LP64")
-            under_defined = False
-    print(f"    {binary_code}", end=",\n")
-
-if under_defined:
-    under_defined = False
-    print("#endif // _LP64")
-
+print_with_ifdef(context, instructions, lambda x: x[1], items_per_line=1)
 print("  };")
 print("  static const unsigned int insns_lens[] =")
 print("  {")
-for idx, (offset, _) in enumerate(instructions):
-    if context[idx]:
-        if not under_defined:
-            print("\n#ifdef _LP64")
-            under_defined = True
-    else:
-        if under_defined:
-            print("\n#endif // _LP64")
-            under_defined = False
-    if idx % 8 == 0:
-        print("    ", end="")
-    print(f"{offset}", end=", ")
-    if idx % 8 == 7:
-        print()
-if under_defined:
-    under_defined = False
-    print("\n#endif // _LP64")
-# print("#ifdef _LP64")
-# for i, (offset, _) in enumerate(instructions64):
-#     if i % 8 == 0:
-#         print("    ", end="")
-#     print(f"{offset}", end=", ")
-#     if i % 8 == 7:
-#         print()
-# print("#endif // _LP64")
+print_with_ifdef(context, instructions, lambda x: x[0], end=", ", items_per_line=8)
 print()
 print("  };")
 print()
 print("  static const char* insns_strs[] =")
 print("  {")
-
-for idx, instr in enumerate(instrs):
-    if context[idx]:
-        if not under_defined:
-            print("#ifdef _LP64")
-            under_defined = True
-    else:
-        if under_defined:
-            print("#endif // _LP64")
-            under_defined = False
-    print(f"    \"{instr}\",")
-    
-if under_defined:
-    under_defined = False
-    print("#endif // _LP64")
-# print("#ifdef _LP64")
-# for instr in instrs[count:]:
-#     print(f"    \"{instr}\",")
-# print("#endif // _LP64")
-
+print_with_ifdef(context, instrs, lambda x: f"\"{x}\"", items_per_line=1)
 print("  };")
 
 print("// END  Generated code -- do not edit")
