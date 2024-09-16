@@ -1,13 +1,13 @@
 #include "precompiled.hpp"
 
+#if defined(X86)
+
 #include <unordered_map>
 #include "asm/assembler.hpp"
 #include "asm/assembler.inline.hpp"
 #include "asm/macroAssembler.hpp"
 #include "memory/resourceArea.hpp"
 #include "unittest.hpp"
-
-#if defined(X86)
 
 #define __ _masm.
 
@@ -56,6 +56,8 @@ static void asm_check(const uint8_t *insns, const uint8_t *insns1, const unsigne
 }
 
 TEST_VM(AssemblerX86, validate) {
+  UseAVX = 3;
+  UseAPX = 1;
 	BufferBlob* b = BufferBlob::create("x64Test", 500000);
 	CodeBuffer code(b);
 	MacroAssembler _masm(&code);
