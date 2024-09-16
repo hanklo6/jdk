@@ -251,50 +251,69 @@ immediate_map = {
     64: immediates32
 }
 
-def generate(RegOp, ops):
+context = []
+
+def generate(RegOp, ops, print_lp64_flag=True):
     # special cases
     shift_ops = {'sarl', 'sarq', 'shll', 'shlq', 'shrl', 'shrq', 'shrdl', 'shrdq', 'shldl', 'shldq', 'rcrq', 'rorl', 'rorq', 'roll', 'rolq', 'rcll', 'rclq'}
     addw_ops = {'addw'}
     for op in ops:
         op_name = op[0]
         width = op[2]
+        lp64_flag = False
         if RegOp == RegInstruction or RegOp == CondRegInstruction:
-            for reg in test_regs:
-                instr = RegOp(*op, reg=reg)
+            for i in range(len(test_regs)):
+                if i == 3 and lp64_flag == False and print_lp64_flag:
+                    lp64_flag = True
+                    print("#ifdef _LP64")
+                instr = RegOp(*op, reg=test_regs[i])
                 cstr = instr.cstr()
                 astr = instr.astr()
                 print("    %-50s //\t%s" % (cstr, astr))
+                context.append(lp64_flag or not print_lp64_flag)
                 instrs.append(cstr)
                 outfile.write(f"\t{astr}\n")
         elif RegOp == TwoRegInstruction:
             for i in range(len(test_regs)):
+                if i + 1 == 3 and lp64_flag == False and print_lp64_flag:
+                    lp64_flag = True
+                    print("#ifdef _LP64")
                 instr = RegOp(*op, reg1=test_regs[i], reg2=test_regs[(i+1)%len(test_regs)])
                 cstr = instr.cstr()
                 astr = instr.astr()
                 print("    %-50s //\t%s" % (cstr, astr))
+                context.append(lp64_flag or not print_lp64_flag)
                 instrs.append(cstr)
                 outfile.write(f"\t{astr}\n")
         elif RegOp == MemRegInstruction or RegOp == RegMemInstruction or RegOp == CondRegMemInstruction:
             for i in range(len(test_regs)):
                 if test_regs[(i+2)%len(test_regs)] == 'rsp':
                     continue
+                if i + 2 == 3 and lp64_flag == False and print_lp64_flag:
+                    lp64_flag = True
+                    print("#ifdef _LP64")
                 instr = RegOp(*op, reg=test_regs[i], mem_base=test_regs[(i+1)%len(test_regs)], mem_idx=test_regs[(i+2)%len(test_regs)])
                 cstr = instr.cstr()
                 astr = instr.astr()
                 print("    %-50s //\t%s" % (cstr, astr))
+                context.append(lp64_flag or not print_lp64_flag)
                 instrs.append(cstr)
                 outfile.write(f"\t{astr}\n")
         elif RegOp == RegImmInstruction:
-            for reg in test_regs:
+            for i in range(len(test_regs)):
+                if i == 3 and lp64_flag == False and print_lp64_flag:
+                    lp64_flag = True
+                    print("#ifdef _LP64")
                 if op_name in shift_ops:
                     imm_list = immediates5
                 else:
                     imm_list = immediate_map[width]
                 for imm in imm_list:
-                    instr = RegOp(*op, reg=reg, imm=imm)
+                    instr = RegOp(*op, reg=test_regs[i], imm=imm)
                     cstr = instr.cstr()
                     astr = instr.astr()
                     print("    %-50s //\t%s" % (cstr, astr))
+                    context.append(lp64_flag or not print_lp64_flag)
                     instrs.append(cstr)
                     outfile.write(f"\t{astr}\n")
         elif RegOp == MemImmInstruction:
@@ -306,26 +325,37 @@ def generate(RegOp, ops):
                 imm_list = immediate_map[width]
             for imm in imm_list:
                 for i in range(len(test_regs)):
+                    if i + 1 == 3 and lp64_flag == False and print_lp64_flag:
+                        lp64_flag = True
+                        print("#ifdef _LP64")
                     instr = RegOp(*op, imm=imm, mem_base=test_regs[i], mem_idx=test_regs[(i+1)%len(test_regs)])
                     if test_regs[(i+1)%len(test_regs)] == 'rsp':
                         continue
                     cstr = instr.cstr()
                     astr = instr.astr()
                     print("    %-50s //\t%s" % (cstr, astr))
+                    context.append(lp64_flag or not print_lp64_flag)
                     instrs.append(cstr)
                     outfile.write(f"\t{astr}\n")
         elif RegOp == MemInstruction:
             for i in range(len(test_regs)):
+                if i + 1 == 3 and lp64_flag == False and print_lp64_flag:
+                    lp64_flag = True
+                    print("#ifdef _LP64")
                 instr = RegOp(*op, mem_base=test_regs[i], mem_idx=test_regs[(i+1)%len(test_regs)])
                 if test_regs[(i+1)%len(test_regs)] == 'rsp':
                     continue
                 cstr = instr.cstr()
                 astr = instr.astr()
                 print("    %-50s //\t%s" % (cstr, astr))
+                context.append(lp64_flag or not print_lp64_flag)
                 instrs.append(cstr)
                 outfile.write(f"\t{astr}\n")
         elif RegOp == RegRegImmInstruction:
             for i in range(len(test_regs)):
+                if i + 1 == 3 and lp64_flag == False and print_lp64_flag:
+                    lp64_flag = True
+                    print("#ifdef _LP64")
                 if op_name in shift_ops:
                     imm_list = immediates5
                 else:
@@ -335,10 +365,14 @@ def generate(RegOp, ops):
                     cstr = instr.cstr()
                     astr = instr.astr()
                     print("    %-50s //\t%s" % (cstr, astr))
+                    context.append(lp64_flag or not print_lp64_flag)
                     instrs.append(cstr)
                     outfile.write(f"\t{astr}\n")
         elif RegOp == RegMemImmInstruction:
             for i in range(len(test_regs)):
+                if i + 1 == 3 and lp64_flag == False and print_lp64_flag:
+                    lp64_flag = True
+                    print("#ifdef _LP64")
                 imm_list = immediate_map[width]
                 for imm in imm_list:
                     instr = RegOp(*op, reg=test_regs[i], mem_base=test_regs[(i+1)%len(test_regs)], mem_idx=test_regs[(i+2)%len(test_regs)], imm=imm)
@@ -347,10 +381,14 @@ def generate(RegOp, ops):
                     cstr = instr.cstr()
                     astr = instr.astr()
                     print("    %-50s //\t%s" % (cstr, astr))
+                    context.append(lp64_flag or not print_lp64_flag)
                     instrs.append(cstr)
                     outfile.write(f"\t{astr}\n")
         elif RegOp == Push2Instruction or RegOp == Pop2Instruction:
             for i in range(len(test_regs)):
+                if i + 1 == 3 and lp64_flag == False and print_lp64_flag:
+                    lp64_flag = True
+                    print("#ifdef _LP64")
                 instr = RegOp(*op, reg1=test_regs[i], reg2=test_regs[(i+1)%len(test_regs)])
                 # rsp can't be used in push2 and pop2
                 if test_regs[(i+1)%len(test_regs)] == 'rsp' or test_regs[i] == 'rsp':
@@ -358,17 +396,25 @@ def generate(RegOp, ops):
                 cstr = instr.cstr()
                 astr = instr.astr()
                 print("    %-50s //\t%s" % (cstr, astr))
+                context.append(lp64_flag or not print_lp64_flag)
                 instrs.append(cstr)
                 outfile.write(f"\t{astr}\n")
         elif RegOp ==  RegImm32Instruction:
             for i in range(len(test_regs)):
+                if i == 3 and lp64_flag == False and print_lp64_flag:
+                    lp64_flag = True
+                    print("#ifdef _LP64")
                 for imm in immediate_values_16_to_32_bit:
                     instr = RegOp(*op, reg=test_regs[i], imm=imm)
                     cstr = instr.cstr()
                     astr = instr.astr()
                     print("    %-50s //\t%s" % (cstr, astr))
+                    context.append(lp64_flag or not print_lp64_flag)
                     instrs.append(cstr)
                     outfile.write(f"\t{astr}\n")
+        if lp64_flag and print_lp64_flag:
+            print("#endif // _LP64")
+            lp64_flag = False
 
 print("// BEGIN  Generated code -- do not edit")
 print("// Generated by x86-asmtest.py")
@@ -381,188 +427,211 @@ instruction_set = {
         ('shldl', 'shld', 32),
         ('shrdl', 'shrd', 32),
         ('adcl', 'adc', 32),
-        ('adcq', 'adc', 64),
         ('imull', 'imul', 32),
-        ('imulq', 'imul', 64),
         ('popcntl', 'popcnt', 32),
-        ('popcntq', 'popcnt', 64),
         ('sbbl', 'sbb', 32),
-        ('sbbq', 'sbb', 64),
         ('subl', 'sub', 32),
-        ('subq', 'sub', 64),
         ('tzcntl', 'tzcnt', 32),
-        ('tzcntq', 'tzcnt', 64),
         ('lzcntl', 'lzcnt', 32),
-        ('lzcntq', 'lzcnt', 64),
         ('addl', 'add', 32),
-        ('addq', 'add', 64),
         ('andl', 'and', 32),
-        ('andq', 'and', 64),
         ('orl', 'or', 32),
-        ('orq', 'or', 64),
         ('xorl', 'xor', 32),
-        ('xorq', 'xor', 64)
     ],
     MemRegInstruction: [
         ('addb', 'add', 8),
         ('addw', 'add', 16),
         ('addl', 'add', 32),
-        ('addq', 'add', 64),
         ('adcl', 'adc', 32),
         ('andb', 'and', 8),
         ('andl', 'and', 32),
-        ('andq', 'and', 64),
         ('orb', 'or', 8),
         ('orl', 'or', 32),
-        ('orq', 'or', 64),
         ('xorb', 'xor', 8),
         ('xorl', 'xor', 32),
-        ('xorq', 'xor', 64),
         ('subl', 'sub', 32),
-        ('subq', 'sub', 64)
     ],
     MemImmInstruction: [
         ('adcl', 'adc', 32),
         ('andl', 'and', 32),
-        ('andq', 'and', 64),
         ('addb', 'add', 8),
         ('addw', 'add', 16),
         ('addl', 'add', 32),
-        ('addq', 'add', 64),
         ('sarl', 'sar', 32),
-        ('sarq', 'sar', 64),
         ('sbbl', 'sbb', 32),
-        ('sbbq', 'sbb', 64),
         ('shrl', 'shr', 32),
-        ('shrq', 'shr', 64),
         ('subl', 'sub', 32),
-        ('subq', 'sub', 64),
         ('xorl', 'xor', 32),
-        ('xorq', 'xor', 64),
         ('orb', 'or', 8),
         ('orl', 'or', 32),
-        ('orq', 'or', 64)
     ],
     RegMemInstruction: [
         ('addl', 'add', 32),
-        ('addq', 'add', 64),
         ('andl', 'and', 32),
-        ('andq', 'and', 64),
         ('lzcntl', 'lzcnt', 32),
-        ('lzcntq', 'lzcnt', 64),
         ('orl', 'or', 32),
-        ('orq', 'or', 64),
         ('adcl', 'adc', 32),
-        ('adcq', 'adc', 64),
         ('imull', 'imul', 32),
-        ('imulq', 'imul', 64),
         ('popcntl', 'popcnt', 32),
-        ('popcntq', 'popcnt', 64),
         ('sbbl', 'sbb', 32),
-        ('sbbq', 'sbb', 64),
         ('subl', 'sub', 32),
-        ('subq', 'sub', 64),
         ('tzcntl', 'tzcnt', 32),
-        ('tzcntq', 'tzcnt', 64),
         ('xorb', 'xor', 8),
         ('xorw', 'xor', 16),
         ('xorl', 'xor', 32),
-        ('xorq', 'xor', 64)
     ],
     RegImmInstruction: [
         ('addb', 'add', 8),
         ('addl', 'add', 32),
-        ('addq', 'add', 64),
         ('andl', 'and', 32),
-        ('andq', 'and', 64),
         ('adcl', 'adc', 32),
-        ('adcq', 'adc', 64),
         ('rcll', 'rcl', 32),
-        ('rclq', 'rcl', 64),
-        ('rcrq', 'rcr', 64),
         ('roll', 'rol', 32),
-        ('rolq', 'rol', 64),
         ('rorl', 'ror', 32),
-        ('rorq', 'ror', 64),
         ('sarl', 'sar', 32),
-        ('sarq', 'sar', 64),
         ('sbbl', 'sbb', 32),
-        ('sbbq', 'sbb', 64),
         ('shll', 'shl', 32),
-        ('shlq', 'shl', 64),
         ('shrl', 'shr', 32),
-        ('shrq', 'shr', 64),
         ('subl', 'sub', 32),
-        ('subq', 'sub', 64),
         ('xorl', 'xor', 32),
-        ('xorq', 'xor', 64),
     ],
     CondRegMemInstruction: [
         ('cmovl', 'cmov', 32, key) for key in cond_to_suffix.keys()
-    ] + 
-    [
-        ('cmovq', 'cmov', 64, key) for key in cond_to_suffix.keys()
     ],
     CondRegInstruction: [
         ('set', 'set', 8, key) for key in cond_to_suffix.keys()
     ],
     RegInstruction: [
         ('divl', 'div', 32),
-        ('divq', 'div', 64),
         ('idivl', 'idiv', 32),
-        ('idivq', 'idiv', 64),
         ('imull', 'imul', 32),
-        ('imulq', 'imul', 64),
         ('mull', 'mul', 32),
-        ('mulq', 'mul', 64),
         ('negl', 'neg', 32),
-        ('negq', 'neg', 64),
         ('notl', 'not', 32),
-        ('notq', 'not', 64),
         ('roll', 'rol', 32),
-        ('rolq', 'rol', 64),
         ('rorl', 'ror', 32),
-        ('rorq', 'ror', 64),
         ('sarl', 'sar', 32),
-        ('sarq', 'sar', 64),
         ('shll', 'shl', 32),
-        ('shlq', 'shl', 64),
         ('shrl', 'shr', 32),
-        ('shrq', 'shr', 64),
         ('incrementl', 'inc', 32),
-        ('incrementq', 'inc', 64),
         ('decrementl', 'dec', 32),
-        ('decrementq', 'dec', 64)
     ],
     MemInstruction: [
         ('mull', 'mul', 32),
-        ('mulq', 'mul', 64),
         ('negl', 'neg', 32),
-        ('negq', 'neg', 64),
         ('sarl', 'sar', 32),
-        ('sarq', 'sar', 64),
         ('shrl', 'shr', 32),
-        ('shrq', 'shr', 64),
         ('incrementl', 'inc', 32),
-        ('incrementq', 'inc', 64),
         ('decrementl', 'dec', 32),
-        ('decrementq', 'dec', 64)
     ],
     RegMemImmInstruction: [
         ('imull', 'imul', 32),
-        ('imulq', 'imul', 64)
     ],
     RegRegImmInstruction: [
         ('imull', 'imul', 32),
-        ('imulq', 'imul', 64),
         ('shldl', 'shld', 32),
-        ('shldq', 'shld', 64),
         ('shrdl', 'shrd', 32),
+    ],
+    RegImm32Instruction: [
+        ('subl_imm32', 'sub', 32),
+    ],
+}
+
+instruction_set64 = {
+    TwoRegInstruction: [
+        ('adcq', 'adc', 64),
+        ('imulq', 'imul', 64),
+        ('popcntq', 'popcnt', 64),
+        ('sbbq', 'sbb', 64),
+        ('subq', 'sub', 64),
+        ('tzcntq', 'tzcnt', 64),
+        ('lzcntq', 'lzcnt', 64),
+        ('addq', 'add', 64),
+        ('andq', 'and', 64),
+        ('orq', 'or', 64),
+        ('xorq', 'xor', 64)
+    ],
+    MemRegInstruction: [
+        ('addq', 'add', 64),
+        ('andq', 'and', 64),
+        ('orq', 'or', 64),
+        ('xorq', 'xor', 64),
+        ('subq', 'sub', 64)
+    ],
+    MemImmInstruction: [
+        ('andq', 'and', 64),
+        ('addq', 'add', 64),
+        ('sarq', 'sar', 64),
+        ('sbbq', 'sbb', 64),
+        ('shrq', 'shr', 64),
+        ('subq', 'sub', 64),
+        ('xorq', 'xor', 64),
+        ('orq', 'or', 64)
+    ],
+    RegMemInstruction: [
+        ('addq', 'add', 64),
+        ('andq', 'and', 64),
+        ('lzcntq', 'lzcnt', 64),
+        ('orq', 'or', 64),
+        ('adcq', 'adc', 64),
+        ('imulq', 'imul', 64),
+        ('popcntq', 'popcnt', 64),
+        ('sbbq', 'sbb', 64),
+        ('subq', 'sub', 64),
+        ('tzcntq', 'tzcnt', 64),
+        ('xorq', 'xor', 64)
+    ],
+    RegImmInstruction: [
+        ('addq', 'add', 64),
+        ('andq', 'and', 64),
+        ('adcq', 'adc', 64),
+        ('rclq', 'rcl', 64),
+        ('rcrq', 'rcr', 64),
+        ('rolq', 'rol', 64),
+        ('rorq', 'ror', 64),
+        ('sarq', 'sar', 64),
+        ('sbbq', 'sbb', 64),
+        ('shlq', 'shl', 64),
+        ('shrq', 'shr', 64),
+        ('subq', 'sub', 64),
+        ('xorq', 'xor', 64),
+    ],
+    CondRegMemInstruction: [
+        ('cmovq', 'cmov', 64, key) for key in cond_to_suffix.keys()
+    ],
+    RegInstruction: [
+        ('divq', 'div', 64),
+        ('idivq', 'idiv', 64),
+        ('imulq', 'imul', 64),
+        ('mulq', 'mul', 64),
+        ('negq', 'neg', 64),
+        ('notq', 'not', 64),
+        ('rolq', 'rol', 64),
+        ('rorq', 'ror', 64),
+        ('sarq', 'sar', 64),
+        ('shlq', 'shl', 64),
+        ('shrq', 'shr', 64),
+        ('incrementq', 'inc', 64),
+        ('decrementq', 'dec', 64)
+    ],
+    MemInstruction: [
+        ('mulq', 'mul', 64),
+        ('negq', 'neg', 64),
+        ('sarq', 'sar', 64),
+        ('shrq', 'shr', 64),
+        ('incrementq', 'inc', 64),
+        ('decrementq', 'dec', 64)
+    ],
+    RegMemImmInstruction: [
+        ('imulq', 'imul', 64)
+    ],
+    RegRegImmInstruction: [
+        ('imulq', 'imul', 64),
+        ('shldq', 'shld', 64),
         ('shrdq', 'shrd', 64)
     ],
     RegImm32Instruction: [
         ('orq_imm32', 'or', 64),
-        ('subl_imm32', 'sub', 32),
         ('subq_imm32', 'sub', 64)
     ],
     Pop2Instruction: [
@@ -576,7 +645,14 @@ instruction_set = {
 }
 
 for RegOp, ops in instruction_set.items():
-    generate(RegOp, ops)
+    generate(RegOp, ops, True)
+
+print("#ifdef _LP64")
+
+for RegOp, ops in instruction_set64.items():
+    generate(RegOp, ops, False)
+    
+print("#endif // _LP64")
 
 outfile.close()
 
@@ -591,7 +667,7 @@ lines = disassembly_text.split("\n")
 instruction_regex = re.compile(r'^\s*([0-9a-f]+):\s*([0-9a-f\s]+?)(?:\s{2,})')
 instructions = []
 
-for line in lines:
+for i, line in enumerate(lines):
     match = instruction_regex.match(line)
     if match:
         offset = int(match.group(1), 16)
@@ -599,31 +675,80 @@ for line in lines:
         binary_code = ", ".join([f"0x{insn}" for insn in insns])
         length = len(insns)
         instructions.append((length, binary_code))
-
+# print(context)
 print()
 print("  static const uint8_t insns[] =")
 print("  {")
 
-for _, binary_code in instructions:
+under_defined = False
+for idx, (_, binary_code) in enumerate(instructions):
+    if context[idx]:
+        if not under_defined:
+            print("#ifdef _LP64")
+            under_defined = True
+    else:
+        if under_defined:
+            print("#endif // _LP64")
+            under_defined = False
     print(f"    {binary_code}", end=",\n")
+
+if under_defined:
+    under_defined = False
+    print("#endif // _LP64")
 
 print("  };")
 print("  static const unsigned int insns_lens[] =")
 print("  {")
-for i, (offset, _) in enumerate(instructions):
-    if i % 8 == 0:
+for idx, (offset, _) in enumerate(instructions):
+    if context[idx]:
+        if not under_defined:
+            print("\n#ifdef _LP64")
+            under_defined = True
+    else:
+        if under_defined:
+            print("\n#endif // _LP64")
+            under_defined = False
+    if idx % 8 == 0:
         print("    ", end="")
     print(f"{offset}", end=", ")
-    if i % 8 == 7:
+    if idx % 8 == 7:
         print()
+if under_defined:
+    under_defined = False
+    print("\n#endif // _LP64")
+# print("#ifdef _LP64")
+# for i, (offset, _) in enumerate(instructions64):
+#     if i % 8 == 0:
+#         print("    ", end="")
+#     print(f"{offset}", end=", ")
+#     if i % 8 == 7:
+#         print()
+# print("#endif // _LP64")
 print()
 print("  };")
 print()
 print("  static const char* insns_strs[] =")
 print("  {")
 
-for instr in instrs:
+for idx, instr in enumerate(instrs):
+    if context[idx]:
+        if not under_defined:
+            print("#ifdef _LP64")
+            under_defined = True
+    else:
+        if under_defined:
+            print("#endif // _LP64")
+            under_defined = False
     print(f"    \"{instr}\",")
+    
+if under_defined:
+    under_defined = False
+    print("#endif // _LP64")
+# print("#ifdef _LP64")
+# for instr in instrs[count:]:
+#     print(f"    \"{instr}\",")
+# print("#endif // _LP64")
+
 print("  };")
 
 print("// END  Generated code -- do not edit")
