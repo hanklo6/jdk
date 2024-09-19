@@ -62,10 +62,10 @@ TEST_VM(AssemblerX86, validate) {
   AutoModifyRestore<int> flag_change_avx(UseAVX, 3);
   FlagSetting flag_change_apx(UseAPX, true);
   VM_Version::set_apx_cpuFeatures();
-	BufferBlob* b = BufferBlob::create("x64Test", 500000);
-	CodeBuffer code(b);
-	MacroAssembler _masm(&code);
-	address entry = __ pc();
+  BufferBlob* b = BufferBlob::create("x64Test", 500000);
+  CodeBuffer code(b);
+  MacroAssembler _masm(&code);
+  address entry = __ pc();
 
   // python x86-asmtest.py | expand > asmtest.out.h
 #include "asmtest.out.h"
