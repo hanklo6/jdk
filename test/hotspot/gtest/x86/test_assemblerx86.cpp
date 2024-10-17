@@ -1,29 +1,6 @@
-/*
- * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
- * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
- *
- * This code is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 only, as
- * published by the Free Software Foundation.
- *
- * This code is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
- * version 2 for more details (a copy is included in the LICENSE file that
- * accompanied this code).
- *
- * You should have received a copy of the GNU General Public License version
- * 2 along with this work; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
- * or visit www.oracle.com if you need additional information or have any
- * questions.
- */
-
 #include "precompiled.hpp"
 
-#if defined(X86) && !defined(ZERO)
+#if defined(X86)
 
 #include "utilities/vmassert_uninstall.hpp"
 #include <unordered_map>
@@ -83,6 +60,7 @@ static void asm_check(const uint8_t *insns, const uint8_t *insns1, const unsigne
 }
 
 TEST_VM(AssemblerX86, validate) {
+  UseAVX = 3;
   FlagSetting flag_change_apx(UseAPX, true);
   VM_Version::set_apx_cpuFeatures();
   BufferBlob* b = BufferBlob::create("x64Test", 500000);
@@ -90,8 +68,7 @@ TEST_VM(AssemblerX86, validate) {
   MacroAssembler _masm(&code);
   address entry = __ pc();
 
-  // To build asmtest.out.h, ensure you have binutils version 2.34 or higher, then run:
-  // python3 x86-asmtest.py | expand > asmtest.out.h
+  // python x86-asmtest.py | expand > asmtest.out.h
 #include "asmtest.out.h"
 
   asm_check((const uint8_t *)entry, (const uint8_t *)insns, insns_lens, insns_strs, sizeof(insns_lens) / sizeof(insns_lens[0]));
